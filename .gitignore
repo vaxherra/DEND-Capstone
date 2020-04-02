@@ -8,7 +8,8 @@ __pycache__/
 
 # Data files
 .csv
-
+.pdf
+.png
 
 # Distribution / packaging
 .Python
@@ -131,3 +132,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+documentation/docs/CAMEO.Manual.1.1b3.pdf
+documentation/docs/GDELT-Data_Format_Codebook.pdf
