@@ -3,10 +3,11 @@ from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.contrib.hooks.aws_hook import AwsHook
 from airflow.hooks.S3_hook import S3Hook # https://airflow.apache.org/docs/stable/_api/airflow/hooks/S3_hook/index.html
-
+from airflow import AirflowException
 # General libraries
 import os
 import urllib.request
+
 
 class Src2S3(BaseOperator):
     """
@@ -15,8 +16,8 @@ class Src2S3(BaseOperator):
     Args:
         s3_bucket                : name of S3 bucket
         s3_key                   : name of S3 key 
-        src_url                  : web address template of a source CSV file. Must contain '{}' that will be filled with context['next_ds_nodash'], i.e 'YYYMMDD'. 
- 
+        src_url                  : web address template of a source CSV file. Must contain '{}' that will be filled with context['yesterday_ds_nodash'], i.e 'YYYMMDD' from the previous day (due to GDELT 1.0 reporting of events)
+        aws_credentials_id       : an Airflow conn_id for AWS user
     
     Returns:
         None
@@ -32,6 +33,7 @@ class Src2S3(BaseOperator):
                  s3_bucket="",
                  s3_key="",
                  src_url = "",
+                 aws_credentials_id = "",
                  *args, **kwargs):
         
         # Call parent constructor
@@ -41,23 +43,49 @@ class Src2S3(BaseOperator):
         self.s3_bucket = s3_bucket
         self.s3_key = s3_key
         self.src_url = src_url
+        self.aws_credentials_id = aws_credentials_id
 
     def execute(self, context):
 
-        # Download file 
-        day_url = self.src_url.format(context['next_ds_nodash'])
+        # try downloading a file, using a context variable
+        # note that the day before is referenced, this reflects GDELT database 1.0 reporting of events from the previous day
+        day_url = self.src_url.format(context['yesterday_ds_nodash'])
         print(os.system('pwd'))
+ 
+        try: 
+            urllib.request.urlretrieve(day_url, 'tmp_data/'+context['yesterday_ds_nodash']+".export.CSV.zip"  )
+        except:
+            self.log.info("Could not download a file from: "+day_url)
+            AirflowException("File could not be downloaded.")
 
-        # TODO: try/except case
-        urllib.request.urlretrieve(day_url, 'tmp_data/'+context['next_ds_nodash']+".zip"  )
 
-
+        # TODO: clean this mess of comments
         # Place in S3
         # https://airflow.apache.org/docs/stable/_api/airflow/hooks/S3_hook/index.html
+
+        # AWS 'S3_hook', is a child class of 'AWSHook'
+        # https://airflow.apache.org/docs/stable/_modules/airflow/hooks/S3_hook.html
+
+        # AWS Airflow's 'AWSHook':
+        # https://airflow.apache.org/docs/stable/_modules/airflow/contrib/hooks/aws_hook.html
+
         # def load_file...
+        aws_hook = AwsHook(self.aws_credentials_id)
+        credentials = aws_hook.get_credentials()
+
+        s3_hook = S3Hook(self.aws_credentials_id)
+
+        self.log.info("Uploading file to S3 ...")
+        s3_hook.load_file(
+            filename= 'tmp_data/'+context['yesterday_ds_nodash']+".export.CSV.zip",
+            key = self.s3_key  + "/" + context['yesterday_ds_nodash']+".export.CSV.zip" ,
+            bucket_name = self.s3_bucket, 
+            replace = True, #in case re-running Airflow, we can replace file
+            encrypt = False
+        )
 
 
         # Delete
 
-        self.log.info( 'Processing date: ' + str(context['next_ds_nodash']) )
+        self.log.info( 'Processing date: ' + str(context['yesterday_ds_nodash']) )
         self.log.info(os.getcwd())

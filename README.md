@@ -8,12 +8,19 @@ The main goal of the project is to ..
 
 ## 1. Project environment
 
+
+## Conda
 Install required conda environment: `conda env create -f env/environment.yml`
 
 Activate environment: `conda activate DEND`
 
 Whenever updating conda environment, export it after changes with `conda env export > env/environment.yml`.
 
+## Environmental variables
+
+From the **main repository directory, type:"
+
+>  ```export AIRFLOW_HOME=$(pwd)/airflow```
 
 
 ## 2. Data sources  
@@ -36,11 +43,32 @@ TODO: brief documentation for data sources can be found in the `documentation` f
 	- emerging events
 	- with `AvgTone`: positive and negative
 - 
+## 4. Data pipelines
 
-## 4. Data modelling
+**Note:** that the Web UI currently only runs in UTC timezone, and is the standard default.
+
+
+### GDELT data stream
+
+TODO: implement dynamic schedule interval
+Data pipeline for GDELT stream is published based on EST time-zone, which: UTC-4=EST **or** EST-5=EST, depending on the daylight savings time. In order to deliver the data as fast as possible, and avoid time-zone hardships, pipeline performs dynamic date conversion from EST to UTC, as `schedule_interval` depends on a variable. 
+
+
+TODO:
+	Apache airflow defines `GDELT_stream` for handling a daily influx of event data from GDELT database. For brief overview of the database see: `documentation/GDELT_1.0_EVENTS.md`. 
+
+	The GDELT stream is updated **daily** at 6AM EST or the previous day. The main tasks of this pipeline:
+
+	- download the raw data stream on a regular basis (6:15 EST each day) and push it to AWS S3 bucket,
+
+	- perform automatic set of data quality checks
+
+	- insert data into star-schema on AWS Redshift
+ 
+## 5. Data modelling
 TODO
 
-## 5. Infrastructure
+## 6. Infrastructure
 
 Graph on https://app.cloudcraft.co/
 <img src="documentation/imgs/DENDArchitecture.png" width="600">
@@ -57,12 +85,12 @@ Graph on https://app.cloudcraft.co/
 3. `AWS EMR` serving as a service for internal analytics team, with connections both to Data Lake on `S3` and `AWS Redshift` data warehouse.
  
 
-## 6. Analytics support
+## 7. Analytics support
 TODO
 
 ---
 
-# Project Structure
+# 8. Project Structure
 
 TODO: insert a tree view of the project structure:
 
