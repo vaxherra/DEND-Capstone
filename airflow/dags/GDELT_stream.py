@@ -1,16 +1,13 @@
 
 from airflow import DAG
 from operators.Src2S3 import Src2S3
+from operators.S32Redshift import S32Redshift
 from datetime import datetime, timedelta
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.bash_operator import BashOperator
 
 import wget
 import pytz
-
-
-
-# TODO start at specific hour
 
 # Default parameters
 default_args = {
@@ -55,7 +52,8 @@ source_to_s3 = Src2S3(
     provide_context=True
 )
 
-# TODO: task here: remove file
+
+
 
 end_operator = DummyOperator(task_id='End_execution',  dag=dag)
 
