@@ -46,7 +46,7 @@ class Src2S3(BaseOperator):
         self.aws_credentials_id = aws_credentials_id
 
     def execute(self, context):
-
+        ### DOWNLOAD the file
         # try downloading a file, using a context variable
         # note that the day before is referenced, this reflects GDELT database 1.0 reporting of events from the previous day
         day_url = self.src_url.format(context['yesterday_ds_nodash'])
@@ -58,34 +58,47 @@ class Src2S3(BaseOperator):
             self.log.info("Could not download a file from: "+day_url)
             AirflowException("File could not be downloaded.")
 
-
-        # TODO: clean this mess of comments
-        # Place in S3
+ 
+        ### Place a file in S3
         # https://airflow.apache.org/docs/stable/_api/airflow/hooks/S3_hook/index.html
 
         # AWS 'S3_hook', is a child class of 'AWSHook'
         # https://airflow.apache.org/docs/stable/_modules/airflow/hooks/S3_hook.html
-
-        # AWS Airflow's 'AWSHook':
-        # https://airflow.apache.org/docs/stable/_modules/airflow/contrib/hooks/aws_hook.html
-
-        # def load_file...
-        aws_hook = AwsHook(self.aws_credentials_id)
-        credentials = aws_hook.get_credentials()
+ 
 
         s3_hook = S3Hook(self.aws_credentials_id)
 
+        filename = 'tmp_data/'+context['yesterday_ds_nodash']+".export.CSV.zip"
+
         self.log.info("Uploading file to S3 ...")
-        s3_hook.load_file(
-            filename= 'tmp_data/'+context['yesterday_ds_nodash']+".export.CSV.zip",
-            key = self.s3_key  + "/" + context['yesterday_ds_nodash']+".export.CSV.zip" ,
-            bucket_name = self.s3_bucket, 
-            replace = True, #in case re-running Airflow, we can replace file
-            encrypt = False
-        )
 
+        try:
 
-        # Delete
+            s3_hook.load_file(
+                filename= filename,
+                key = self.s3_key  + "/" + context['yesterday_ds_nodash']+".export.CSV.zip" ,
+                bucket_name = self.s3_bucket, 
+                replace = True, #in case re-running Airflow, we can replace file
+                encrypt = False
+            )
+
+            self.log.info("Successfull upload to S3")
+
+        except:
+            self.log.info("Could not upload a file to S3: "+day_url)
+            AirflowException("File could not be uploaded to S3.")
+
+        ### Delete local file
+        # The files are only temporarily stored in EC2 machine operating Airflow, and need to be removed as soon as stored in persisten S3 storage.
+
+        try:
+            os.remove(filename)
+            self.log.info("Local tmp file removed")
+
+        except:
+            AirflowException("Could not remove tmp stream file. Aborting")
+
+        
 
         self.log.info( 'Processing date: ' + str(context['yesterday_ds_nodash']) )
-        self.log.info(os.getcwd())
+        
