@@ -143,3 +143,4 @@ documentation/docs/CAMEO.Manual.1.1b3.pdf
 documentation/docs/GDELT-Data_Format_Codebook.pdf
 airflow/unittests.cfg
 airflow/airflow.db
+airflow/airflow.db
