@@ -16,7 +16,7 @@ class Src2S3(BaseOperator):
     Args:
         s3_bucket                : name of S3 bucket
         s3_key                   : name of S3 key 
-        src_url                  : web address template of a source CSV file. Must contain '{}' that will be filled with context['yesterday_ds_nodash'], i.e 'YYYMMDD' from the previous day (due to GDELT 1.0 reporting of events)
+        src_url                  : web address template of a source CSV file. Must contain '{}' that will be filled with context['ds_nodash'], i.e 'YYYMMDD' from the previous day (due to GDELT 1.0 reporting of events)
         aws_credentials_id       : an Airflow conn_id for AWS user
     
     Returns:
@@ -49,16 +49,28 @@ class Src2S3(BaseOperator):
         ### DOWNLOAD the file
         # try downloading a file, using a context variable
         # note that the day before is referenced, this reflects GDELT database 1.0 reporting of events from the previous day
-        day_url = self.src_url.format(context['yesterday_ds_nodash'])
+        day_url = self.src_url.format(context['ds_nodash'])
         print(os.system('pwd'))
  
+        filename = 'tmp_data/'+context['ds_nodash']+".export.CSV"
+
         try: 
-            urllib.request.urlretrieve(day_url, 'tmp_data/'+context['yesterday_ds_nodash']+".export.CSV.zip"  )
+            urllib.request.urlretrieve(day_url, filename + ".zip" )
         except:
             self.log.info("Could not download a file from: "+day_url)
             AirflowException("File could not be downloaded.")
 
- 
+        # S3 to Redshift cannot be done on zip files, but on gzip'ed yes.
+        # I need to 'repack' the file to gzip format.
+        try:
+            os.system('unzip '+ filename+".zip -d tmp_data/"  )
+            os.system('gzip -c ' + filename +" > " + filename+".gz"  )
+
+        except:
+            self.log.info("Could not zip/gzip files")
+            AirflowException("File could not be unzipped or gzipped.")
+
+
         ### Place a file in S3
         # https://airflow.apache.org/docs/stable/_api/airflow/hooks/S3_hook/index.html
 
@@ -67,16 +79,15 @@ class Src2S3(BaseOperator):
  
 
         s3_hook = S3Hook(self.aws_credentials_id)
-
-        filename = 'tmp_data/'+context['yesterday_ds_nodash']+".export.CSV.zip"
-
+  
         self.log.info("Uploading file to S3 ...")
 
         try:
 
             s3_hook.load_file(
-                filename= filename,
-                key = self.s3_key  + "/" + context['yesterday_ds_nodash']+".export.CSV.zip" ,
+                filename= filename + ".gz",
+                #key = self.s3_key  + "/" + context['ds_nodash']+".export.CSV.zip" ,
+                key = self.s3_key  + "/" +  context['ds_nodash'][:4] + "/" + context['ds_nodash'][4:6]  + "/"  + context['ds_nodash']+".export.CSV.gz" ,
                 bucket_name = self.s3_bucket, 
                 replace = True, #in case re-running Airflow, we can replace file
                 encrypt = False
@@ -85,7 +96,7 @@ class Src2S3(BaseOperator):
             self.log.info("Successfull upload to S3")
 
         except:
-            self.log.info("Could not upload a file to S3: "+day_url)
+            self.log.info("Could not upload a file to S3: "+ filename)
             AirflowException("File could not be uploaded to S3.")
 
         ### Delete local file
@@ -93,6 +104,8 @@ class Src2S3(BaseOperator):
 
         try:
             os.remove(filename)
+            os.remove(filename+".gz")
+            os.remove(filename+".zip")
             self.log.info("Local tmp file removed")
 
         except:
@@ -100,5 +113,5 @@ class Src2S3(BaseOperator):
 
         
 
-        self.log.info( 'Processing date: ' + str(context['yesterday_ds_nodash']) )
+        self.log.info( 'Processing date: ' + str(context['ds_nodash']) )
         

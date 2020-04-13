@@ -33,9 +33,9 @@ Only some headers relevant to the project at hand are documented:
 #### Event ID and date attributes (some omitted for brevity)
 - `GlobalEventID`. (integer): Globally unique identifier assigned to each event record that uniquely identifies it in the master dataset. GDELT specifies that **there might be some small amount of error duplicates in events**
 
-- `Day`. (integer) date the event took place in `YYYYMMDD` format.
+- `SQLDATE` . (integer) date the event took place in `YYYYMMDD` format.
 
-- ...
+ 
 
 #### Actor 1 attributes (some omitted for brevity)
 
@@ -136,7 +136,7 @@ determine whether two location names refer to the same place.
 
 - `Actor1Geo_Long`. (numeric) This is the centroid longitude of the landmark for mapping.
 
-- `Actor1Geo_FeatureID`. (signed integer) This is the GNS or GNIS FeatureID for this location. More information on these values can be found in [Leetaru 2012](http://www.dlib.org/dlib/september12/leetaru/09leetaru.html).NOTE: This field will be blank except when Actor1Geo_Type has a value of 3 or 4. A small percentage of small cities and towns may have a blank value in this field even for Actor1Geo_Type values of 3 or 4: this will be corrected in the 2.0 release of GDELT. NOTE: This field can contain both positive and negative numbers, see [Leetaru 2012](http://www.dlib.org/dlib/september12/leetaru/09leetaru.html) for more information on this.
+- `Actor1Geo_FeatureID`. (~~signed integer~~ **character**: upon manual inspection it turned out that this column contains sometimes string, and the official documentation is invalid for this field) This is the GNS or GNIS FeatureID for this location. More information on these values can be found in [Leetaru 2012](http://www.dlib.org/dlib/september12/leetaru/09leetaru.html).NOTE: This field will be blank except when Actor1Geo_Type has a value of 3 or 4. A small percentage of small cities and towns may have a blank value in this field even for Actor1Geo_Type values of 3 or 4: this will be corrected in the 2.0 release of GDELT. NOTE: This field can contain both positive and negative numbers, see [Leetaru 2012](http://www.dlib.org/dlib/september12/leetaru/09leetaru.html) for more information on this.
 
      
 > **These codes are repeated for Actor2 and Action, using those prefixes.**
