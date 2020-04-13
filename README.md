@@ -25,6 +25,15 @@ From the **main repository directory, type:"
 
 ## 2. Data sources  
 
+TODO: delete
+gdelt hooks: 
+- date
+- location
+- country code (2 characters)
+https://www.geodatasource.com/resources/tutorials/international-country-code-fips-versus-iso-3166/
+
+- GNIS/GNS ID from ActionGeo_FeatureID
+https://www.usgs.gov/core-science-systems/ngp/board-on-geographic-names/download-gnis-data
 
 	- https://github.com/curran/data
 	- https://www.gdeltproject.org/data.html#rawdatafiles
@@ -42,8 +51,12 @@ TODO: brief documentation for data sources can be found in the `documentation` f
 	- diminishing events
 	- emerging events
 	- with `AvgTone`: positive and negative
+
+- geographic region selected by latitude and longitude
 - 
 ## 4. Data pipelines
+
+In order to run Airflow data pipelines, switch to `/airflow` folder from the main repository, and export environmental variable `export AIRFLOW_HOME=$(pwd)`, then it is possible to start the scheduler by running `airflow scheduler` and/or a webserver on a `8080` port: `airflow webserver -p 8080`.
 
 **Note:** that the Web UI currently only runs in UTC timezone, and is the standard default.
 
