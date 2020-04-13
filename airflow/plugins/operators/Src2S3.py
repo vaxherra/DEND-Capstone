@@ -9,9 +9,9 @@ import os
 import urllib.request
 
 
-class Src2S3(BaseOperator):
+class GDELT2S3(BaseOperator):
     """
-    Custom Airflow Operator to transfer data from a target source to on-premise AWS S3 bucket ("Src2S3"). 
+    Custom Airflow Operator to transfer data from a target local file to on-premise AWS S3 bucket ("GDELT2S3"). 
  
     Args:
         s3_bucket                : name of S3 bucket
@@ -37,7 +37,7 @@ class Src2S3(BaseOperator):
                  *args, **kwargs):
         
         # Call parent constructor
-        super(Src2S3, self).__init__(*args, **kwargs)
+        super(GDELT2S3, self).__init__(*args, **kwargs)
         
         # Map params to object
         self.s3_bucket = s3_bucket
