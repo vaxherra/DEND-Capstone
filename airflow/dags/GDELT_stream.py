@@ -1,6 +1,6 @@
 
 from airflow import DAG
-from operators.Src2S3 import Src2S3
+from operators.Src2S3 import GDELT2S3
 from operators.S32Redshift import S32Redshift
 from datetime import datetime, timedelta
 from airflow.operators.dummy_operator import DummyOperator
@@ -33,12 +33,9 @@ def load_data_to_redshift(*args, **kwargs):
     credentials = aws_hook.get_credentials()
     # Obtain Redshift credentials
     redshift_hook = PostgresHook("redshift")
+ 
 
-    # TODO: remove below 2 lines
-    print("Kurwa")
-    print(kwargs)
-
-    copy_sql = (sql_statements.COPY_SQL.format(
+    copy_sql = (sql_statements.COPY_SQL_GZIP.format(
         kwargs['target_table'], 
         kwargs['url_base'].format(kwargs['ds_nodash'][:4], kwargs['ds_nodash'][4:6], kwargs['ds_nodash'] ),
         credentials.access_key, credentials.secret_key
@@ -46,6 +43,7 @@ def load_data_to_redshift(*args, **kwargs):
     print(copy_sql)
     redshift_hook.run(  copy_sql )
 
+ 
 
 #############################################
 # Default parameters
@@ -80,7 +78,7 @@ dag = DAG(
 
 start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
  
-source_to_s3 = Src2S3(
+source_to_s3 = GDELT2S3(
     task_id="GDELT_to_s3",
     dag=dag,
 
@@ -90,6 +88,7 @@ source_to_s3 = Src2S3(
     aws_credentials_id = "aws_credentials" ,
     provide_context=True
 )
+
 
 create_tables = PostgresOperator(
     task_id="create_redshift_tables",
