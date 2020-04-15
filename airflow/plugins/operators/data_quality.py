@@ -18,7 +18,7 @@ class DataQualityOperator(BaseOperator):
         
  
     """
-
+    template_fields = ("tests",) # this allows us to use context variables from test SQL queries
     ui_color = '#89DA59'
 
     @apply_defaults
@@ -45,5 +45,6 @@ class DataQualityOperator(BaseOperator):
             if(test):
                 self.log.info( str("[") + str(i+1) + str("/") + str(len(self.tests))   +  "] test passed. \n\n SQL STATEMENT: " + str(sql_test) + "\n\n Test Passed, because: \n\n " +  condition.format(sql_test_records)   )
             else:
+                self.log.info( str("[") + str(i+1) + str("/") + str(len(self.tests))   +  "] test failed. \n\n SQL STATEMENT: " + str(sql_test) + "\n\n Test failed, because: \n\n " +  condition.format(sql_test_records)   )
                 raise ValueError(f"Data quality check failed. Expected value different than obtained:  " + condition.format(sql_test_records) )
                 
