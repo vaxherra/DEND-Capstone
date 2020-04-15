@@ -79,9 +79,11 @@ default_args = {
     'email_on_retry': False
 }
 
+# TODO: fill DAG description
 
 dag = DAG(
-    dag_id='gnis_dataset',
+    dag_id='static_dataset',
+    description = "A set of ETL procedures for static datasets: GNIS ...",
     default_args=default_args,
     schedule_interval= "@once", #  once, and only once
     dagrun_timeout=timedelta(minutes=60), # how long a DagRun should be up before timing out / failing,
@@ -104,6 +106,8 @@ create_tables = PostgresOperator(
     sql='/sql_statements/create_tables.sql'  
 )
 
+############# Load files to S3 
+
 # Load file to S3
 gnis_to_s3 = PythonOperator(
     task_id='gnis_to_s3',
@@ -118,7 +122,7 @@ gnis_to_s3 = PythonOperator(
         'aws_credentials_id': 'aws_credentials',
     }
 )
-
+############# Load S3 -> Staging Tables
 
 # S3 -> staging table 'gnis_staging'
 staging_gnis_2_redshift  = PythonOperator(
@@ -130,6 +134,10 @@ staging_gnis_2_redshift  = PythonOperator(
     'target_table':'gnis_staging',
     'aws_credentials_id':'aws_credentials'}, 
 )
+
+############# Dimensional modelling
+# ? 
+
 
 # TODO: gnis_staging to gnis
 load_gnis_dim_table = stage2table(
@@ -144,6 +152,15 @@ query=sql_statements.gnis_table_insert
 
 )
 
+run_quality_checks = DataQualityOperator(
+    task_id='run_data_quality_checks',
+    dag=dag,
+    redshift_conn_id="redshift",
+    tests=[ (sql_statements.gnis_check_nulls, "{}[0][0] == 0" ), # there are no NULL values in significant fields
+    (sql_statements.gnis_num_records, "{}[0][0] >= 2000000") # we have more than 2 million records in this table
+          ]
+)
+
 
 drop_gnis_staging = PostgresOperator(
     task_id="drop_gnis_staging",
@@ -153,16 +170,6 @@ drop_gnis_staging = PostgresOperator(
 )
 
 
-## TODO: data quality operator
-
-run_quality_checks = DataQualityOperator(
-    task_id='run_data_quality_checks',
-    dag=dag,
-    redshift_conn_id="redshift",
-    tests=[ (sql_statements.gnis_check_nulls, "{}[0][0] == 0" ), # there are no NULL values in significant fields
-    (sql_statements.gnis_num_records, "{}[0][0] >= 2000000") # we have more than 2 million records in this table
-          ]
-)
 
 
 end_operator = DummyOperator(task_id='End_execution',  dag=dag)
@@ -178,6 +185,6 @@ start_operator >> create_tables
 create_tables >> gnis_to_s3
 gnis_to_s3 >> staging_gnis_2_redshift
 staging_gnis_2_redshift >> load_gnis_dim_table
-load_gnis_dim_table >> drop_gnis_staging
-drop_gnis_staging >> run_quality_checks
-run_quality_checks >> end_operator
+load_gnis_dim_table >> run_quality_checks
+run_quality_checks >> drop_gnis_staging
+drop_gnis_staging >> end_operator
