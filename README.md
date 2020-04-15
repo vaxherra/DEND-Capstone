@@ -30,10 +30,13 @@ gdelt hooks:
 - date
 - location
 - country code (2 characters)
-https://www.geodatasource.com/resources/tutorials/international-country-code-fips-versus-iso-3166/
+		https://www.geodatasource.com/resources/tutorials/international-country-code-fips-versus-iso-3166/
 
 - GNIS/GNS ID from ActionGeo_FeatureID
-https://www.usgs.gov/core-science-systems/ngp/board-on-geographic-names/download-gnis-data
+		https://www.usgs.gov/core-science-systems/ngp/board-on-geographic-names/download-gnis-data
+
+
+
 
 	- https://github.com/curran/data
 	- https://www.gdeltproject.org/data.html#rawdatafiles
