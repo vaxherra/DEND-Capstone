@@ -1,9 +1,62 @@
 /* ########## STAGING TABLE ########## */
 
+
+CREATE TABLE IF NOT EXISTS public.gdelt_events (
+
+/* some fields are removed, SQLDATE and DATAADDED are not date fields in YYYYMMDD format */
+
+/* EVENTID AND DATE ATTRIBUTES */
+GLOBALEVENTID                   INTEGER NOT NULL,
+SQLDATE                         DATE NOT NULL, 
+
+/* ACTOR ATTRIBUTES */
+Actor1Code                      VARCHAR(20),                
+Actor1Name                      VARCHAR(256),
+Actor1CountryCode               VARCHAR(20),
+
+Actor2Code                      VARCHAR(20),
+Actor2Name                      VARCHAR(256),
+Actor2CountryCode               VARCHAR(20),
+
+GoldsteinScale                  NUMERIC,
+NumMentions                     INTEGER,
+NumSources                      INTEGER,
+NumArticles                     INTEGER,
+AvgTone                         NUMERIC,
+
+/* EVENT GEOGRAPHY */
+Actor1Geo_Type                  INTEGER,           
+Actor1Geo_FullName              VARCHAR(256),
+Actor1Geo_CountryCode           VARCHAR(20),           
+Actor1Geo_Lat                   NUMERIC,
+Actor1Geo_Long                  NUMERIC,
+Actor1Geo_FeatureID             VARCHAR(20),
+
+Actor2Geo_Type                  INTEGER,
+Actor2Geo_FullName              VARCHAR(256),
+Actor2Geo_CountryCode           VARCHAR(20),
+Actor2Geo_Lat                   NUMERIC,
+Actor2Geo_Long                  NUMERIC,
+Actor2Geo_FeatureID             VARCHAR(20),
+
+ActionGeo_Type                  INTEGER,
+ActionGeo_FullName              VARCHAR(256),
+ActionGeo_CountryCode           VARCHAR(20),
+ActionGeo_Lat                   NUMERIC,
+ActionGeo_Long                  NUMERIC,
+ActionGeo_FeatureID             VARCHAR(20),
+
+DATEADDED                       DATE,
+SOURCEURL                       VARCHAR(1024),
+
+CONSTRAINT gdelt_events_pkey PRIMARY KEY (GLOBALEVENTID)
+);
+
+
 CREATE TABLE IF NOT EXISTS public.staging_gdelt_events (
 /* EVENTID AND DATE ATTRIBUTES */
 GLOBALEVENTID                   INTEGER NOT NULL,
-SQLDATE                         INTEGER NOT NULL,
+SQLDATE                         DATE NOT NULL,
 MonthYear                       INTEGER,
 Year                            INTEGER,
 FractionDate                    NUMERIC,
@@ -68,7 +121,7 @@ ActionGeo_Lat                   NUMERIC,
 ActionGeo_Long                  NUMERIC,
 ActionGeo_FeatureID             VARCHAR(20),
 
-DATEADDED                       INTEGER,
+DATEADDED                       DATE,
 SOURCEURL                       VARCHAR(1024),
 CONSTRAINT staging_gdelt_events_pkey PRIMARY KEY (GLOBALEVENTID)
 
