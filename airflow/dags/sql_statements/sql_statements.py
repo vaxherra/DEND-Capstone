@@ -1,7 +1,12 @@
+
+##########################################
+############## GDELT STREAM ##############
+##########################################
+
+# File in GDELT don't contain headers, so don't skip, i.e. skip 0 headers
 # COPY GZIP from S3>Redshift
 # ref: https://docs.aws.amazon.com/redshift/latest/dg/t_loading-gzip-compressed-data-files-from-S3.html
 
-# File in GDELT don't contain headers, so don't skip, i.e. skip 0 headers
 COPY_SQL_GZIP = """
 COPY {}
 FROM '{}'
@@ -9,7 +14,40 @@ ACCESS_KEY_ID '{}'
 SECRET_ACCESS_KEY '{}'
 IGNOREHEADER 0
 DELIMITER '\t' GZIP
+DATEFORMAT AS 'YYYYMMDD'
 """
+
+gdelt_fact_columns = """GLOBALEVENTID,SQLDATE,Actor1Code,Actor1Name,Actor1CountryCode,Actor2Code,Actor2Name,Actor2CountryCode,GoldsteinScale,NumMentions,NumSources,NumArticles,AvgTone,Actor1Geo_Type,Actor1Geo_FullName,Actor1Geo_CountryCode,Actor1Geo_Lat,Actor1Geo_Long,Actor1Geo_FeatureID,Actor2Geo_Type,Actor2Geo_FullName,Actor2Geo_CountryCode,Actor2Geo_Lat,Actor2Geo_Long,Actor2Geo_FeatureID,ActionGeo_Type,ActionGeo_FullName,ActionGeo_CountryCode,ActionGeo_Lat,ActionGeo_Long,ActionGeo_FeatureID,DATEADDED,SOURCEURL"""
+
+
+gdelt_events_table_insert = """
+SELECT {}
+FROM staging_gdelt_events s
+WHERE NOT EXISTS (
+    select 1 from gdelt_events g where g.GLOBALEVENTID = s.GLOBALEVENTID and g.SQLDATE = s.SQLDATE
+)   
+""".format(gdelt_fact_columns )
+ 
+
+
+gdelt_check_nulls = ("""
+        SELECT COUNT(*)
+        FROM gdelt_events
+        WHERE   (GLOBALEVENTID          IS NULL OR
+                SQLDATE        IS NULL) AND
+                sqldate='{{ds}}' ;
+    """)
+
+gdelt_num_records = ("""
+        SELECT COUNT(*)
+        FROM gdelt_events
+        WHERE sqldate='{{ds}}';
+    """)
+
+
+##########################################
+############## GNIS DATABASE #############
+##########################################
 
 # COPY SQL STATEMENT for GNIS
 COPY_SQL = """
@@ -22,7 +60,6 @@ DELIMITER '|'
 DATEFORMAT AS 'MM/DD/YYYY'
 """
 
-### GNIS database:
 # Selects distinctly specified columns in gnis_staging not already present in gnis dimension table
 # This helps with:
 # - avoiding duplicate entries
@@ -32,8 +69,6 @@ gnis_table_insert = ("""
     FROM gnis_staging
     WHERE FEATURE_ID NOT IN (SELECT DISTINCT FEATURE_ID from gnis ) 
 """)
-
-
 
 gnis_check_nulls = ("""
         SELECT COUNT(*)
