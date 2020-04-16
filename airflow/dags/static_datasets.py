@@ -1,6 +1,5 @@
 from airflow import DAG
  
-from operators.S32Redshift import S32Redshift
 from operators.stage2table import stage2table
 from operators.data_quality import DataQualityOperator
 
