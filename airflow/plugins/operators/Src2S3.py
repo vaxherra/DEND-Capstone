@@ -3,6 +3,7 @@ from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.contrib.hooks.aws_hook import AwsHook
 from airflow.hooks.S3_hook import S3Hook # https://airflow.apache.org/docs/stable/_api/airflow/hooks/S3_hook/index.html
+
 from airflow import AirflowException
 # General libraries
 import os
@@ -11,7 +12,7 @@ import urllib.request
 
 class GDELT2S3(BaseOperator):
     """
-    Custom Airflow Operator to transfer data from a target local file to on-premise AWS S3 bucket ("GDELT2S3"). 
+    Custom Airflow Operator for a specific data source "GDELT". It transfers data from a target file available on the internet throgh provided url to on-premise AWS S3 bucket. 
  
     Args:
         s3_bucket                : name of S3 bucket
@@ -46,22 +47,29 @@ class GDELT2S3(BaseOperator):
         self.aws_credentials_id = aws_credentials_id
 
     def execute(self, context):
-        ### DOWNLOAD the file
-        # try downloading a file, using a context variable
-        # note that the day before is referenced, this reflects GDELT database 1.0 reporting of events from the previous day
-        day_url = self.src_url.format(context['ds_nodash'])
-        print(os.system('pwd'))
- 
-        filename = 'tmp_data/'+context['ds_nodash']+".export.CSV"
+        """
+        Performs a series of operations:
+            1. Downloads a CSV file in .ZIP format
+            2. Converts .ZIP to .GZ, as AWS can operate on gzipped archive. This saves space on S3 bucket.
+            3. Places file in S3://s3_key/YYYY/MM location stratified by year and month
+            4. Deletes local files after successfully uploading them to S3 location.
 
+        """
+        ########################################################
+        ############ DOWNLOADING A FILE ########################
+        ########################################################
+        # try downloading a file, using a context variable
+        day_url = self.src_url.format(context['ds_nodash'])
+        filename = 'tmp_data/'+context['ds_nodash']+".export.CSV" # output file location and name
         try: 
             urllib.request.urlretrieve(day_url, filename + ".zip" )
         except:
             self.log.info("Could not download a file from: "+day_url)
             AirflowException("File could not be downloaded.")
 
-        # S3 to Redshift cannot be done on zip files, but on gzip'ed yes.
-        # I need to 'repack' the file to gzip format.
+        ######################################################## 
+        ############ Convert ZIP to GZIP ####################### 
+        ######################################################## 
         try:
             os.system('unzip '+ filename+".zip -d tmp_data/"  )
             os.system('gzip -c ' + filename +" > " + filename+".gz"  )
@@ -70,48 +78,34 @@ class GDELT2S3(BaseOperator):
             self.log.info("Could not zip/gzip files")
             AirflowException("File could not be unzipped or gzipped.")
 
-
-        ### Place a file in S3
-        # https://airflow.apache.org/docs/stable/_api/airflow/hooks/S3_hook/index.html
-
-        # AWS 'S3_hook', is a child class of 'AWSHook'
-        # https://airflow.apache.org/docs/stable/_modules/airflow/hooks/S3_hook.html
- 
-
+        ########################################################
+        ########### PLACE FILE IN S3 ###########################
+        ########################################################
+        # S3 hook documentation: https://airflow.apache.org/docs/stable/_api/airflow/hooks/S3_hook/index.html
         s3_hook = S3Hook(self.aws_credentials_id)
-  
         self.log.info("Uploading file to S3 ...")
-
         try:
-
             s3_hook.load_file(
                 filename= filename + ".gz",
-                #key = self.s3_key  + "/" + context['ds_nodash']+".export.CSV.zip" ,
                 key = self.s3_key  + "/" +  context['ds_nodash'][:4] + "/" + context['ds_nodash'][4:6]  + "/"  + context['ds_nodash']+".export.CSV.gz" ,
                 bucket_name = self.s3_bucket, 
                 replace = True, #in case re-running Airflow, we can replace file
                 encrypt = False
             )
-
             self.log.info("Successfull upload to S3")
-
         except:
             self.log.info("Could not upload a file to S3: "+ filename)
             AirflowException("File could not be uploaded to S3.")
 
-        ### Delete local file
+        ########################################################
+        ############ Deletes local tmp files ###################
+        ########################################################
         # The files are only temporarily stored in EC2 machine operating Airflow, and need to be removed as soon as stored in persisten S3 storage.
-
         try:
             os.remove(filename)
             os.remove(filename+".gz")
             os.remove(filename+".zip")
             self.log.info("Local tmp file removed")
-
         except:
-            AirflowException("Could not remove tmp stream file. Aborting")
-
-        
-
-        self.log.info( 'Processing date: ' + str(context['ds_nodash']) )
-        
+            self.log.info("Could not remove tmp stream file. Aborting.")
+            AirflowException("Could not remove tmp stream file. Aborting.")
