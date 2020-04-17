@@ -5,14 +5,14 @@ import configparser
 import json
 import pandas as pd
 
-# TODO re-write IAC as modular class IAC and subclasses Redshift/S3/IAM
 class iac():
     """
-    IAC: Infrastructure as Code. Provides a set of useful methods to create and terminate different AWS infrastructure solutions.
+    IAC: Infrastructure as Code. Provides a set of useful HELPER methods to create and terminate different AWS infrastructure solutions.
 
     Args:
         KEY     : defines Amazon IAM user ID: "aws_access_key_id"
-        SECRET  : definess Amazon IAM user password: "aws_secret_access_key"
+        SECRET  : defines Amazon IAM user password: "aws_secret_access_key"
+        REGION  : defines AMAZON REGION for created cluster, if not found in allowed regions, selects a default region ('us-west-2')
 
     """
     
@@ -43,9 +43,11 @@ class iac():
         'sa-east-1',
         'us-gov-east-1',
         'us-gov-west-1']
+    default_region='us_west-2'
 
     config = configparser.ConfigParser()
-    default_region='us_west-2'
+
+    # constructor
     def __init__(self,KEY,SECRET,region):
         self.KEY = KEY
         self.SECRET = SECRET
@@ -122,6 +124,16 @@ class iac():
         return True
 
     def S3_list(self):
+        """
+        List all S3 buckets (for a given region when instancing iac object).
+
+        Args:
+            none
+
+        Returns:
+            buckets:    a dictionary with single key corresponding to region name, and value as a list containing the name of the buckets
+
+        """
 
         try:
             response = self.s3_client.list_buckets()
@@ -137,16 +149,16 @@ class iac():
     ###################################################
     ############## AWS Basic IAM Funcitons ############
     ###################################################
-
-    # List of functions is by all means not exhaustive. Rather it serves as an easy point of access to serve assumed architectrural solutions
-
-    # TODO: create IAM role
     def iam_s3_readonly_create(self,config_file):
         """
-        TODO write description. 
-        Returns ARN for a given IAM role
-        """
+        A helper function to create an AWS role with S3 read-only access. 
 
+        Args:
+            config_file         : a configuration filename that defines "DWH" field with "DWH_IAM_ROLE_NAME"
+
+        Returns 
+            ARN string for a given IAM role
+        """
         # Load config file:
         try:
             self.config.read_file(open(config_file))
@@ -159,7 +171,6 @@ class iac():
         required_fields = [ 'DWH_IAM_ROLE_NAME' ]
 
         # Check if all necessary fields have required keys
-            # and for IAM it is only one field, and it must not be empty
         for field in required_fields:
             try:
                 iam_name = self.config.get("DWH",field)
@@ -171,8 +182,6 @@ class iac():
 
 
         # Create a given IAM role:
-        # TODO: source: https://github.com/vaxherra/DEND-Redshift-DWH/blob/master/IaC.ipynb
-
         try:
             print("1.1 Creating a new IAM Role") 
             dwhRole = self.iam.create_role(
@@ -190,21 +199,29 @@ class iac():
 
 
         print("1.2 Attaching Policy")
-
-        self.iam.attach_role_policy(RoleName=self.config.get("DWH",required_fields[0]),
+        try:
+            self.iam.attach_role_policy(RoleName=self.config.get("DWH",required_fields[0]),
                             PolicyArn="arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
                             )['ResponseMetadata']['HTTPStatusCode']
 
-        print("1.3 Get the IAM role ARN")
-        roleArn = self.iam.get_role(RoleName=self.config.get("DWH",required_fields[0]))['Role']['Arn']
+        except Exception as e:
+            print("Could not attach AWS S3 read only policy to a given role")
 
-        print("\t",roleArn)
+        
+        print("1.3 Get the IAM role ARN")
+        try:
+            roleArn = self.iam.get_role(RoleName=self.config.get("DWH",required_fields[0]))['Role']['Arn']
+
+        except Exception as e:
+            print("Could not the IAM role ARN number")
 
         print("1.4 Saving IAM role ARN in provided config file: " + config_file)
-        self.config['IAM_ROLE']['ARN'] = roleArn
-        with open(config_file, 'w') as configfile:
-            self.config.write(configfile)
-
+        try:
+            self.config['IAM_ROLE']['ARN'] = roleArn
+            with open(config_file, 'w') as configfile:
+                self.config.write(configfile)
+        except Exception as e:
+            print("Could not save IAM ROLE ARN number in provided configfile: " + str(config_file))
  
 
         return roleArn
@@ -213,12 +230,24 @@ class iac():
     ###################################################
     ############## AWS Redshift functions #############
     ###################################################
- 
- 
     def redshift_create(self,config_file):
         """
-        Given a config file creates an AWS Redshift cluster.
+        A helper function that creates a redshift cluster specified by input config file. 
 
+        Args:
+            config_file        : a configuration file with key 'DWH' that specifies:
+                - DWH_CLUSTER_TYPE        : cluster type, for example: "multi-node",
+                - DWH_NUM_NODES           : number of nodes in a cluster, for example "4",
+                - DWH_NODE_TYPE           : type of cluster node, for example: "dc2.large"
+                - DWH_CLUSTER_IDENTIFIER  : cluster identifier name, for example "test_cluster"
+                - DWH_DB                  : name of the database
+                - DWH_DB_USER             : name of the database user
+                - DWH_DB_PASSWORD         : password for the database user
+                - DWH_PORT                : port numer for a database, for example 5439
+                - DWH_IAM_ROLE_NAME       : name of the IAM role name attached to a cluster
+
+                together with 'ARN' key specifying:
+                - 'IAM_ROLE' ARN number
         """
 
         # Load config file:
@@ -236,7 +265,6 @@ class iac():
         required_fields = {'DWH': dwh_required_fields, 'IAM_ROLE':iam_required_fields }
 
         ### Check required fields:
-
         for key,fields in required_fields.items():
             for field in fields:
                 try:
@@ -248,8 +276,6 @@ class iac():
                     return("The field "+  key + ": " + field + " not present in " + config_file +". The required keys in " + config_file + " are: \n " + ', \n  '.join(required_fields) )
 
         ### Creating a redshift cluster
-
-
         try:
             response = self.redshift.create_cluster(        
                 # DWH
@@ -265,17 +291,34 @@ class iac():
                 
                 #Roles (for s3 access)
                 IamRoles=[ self.config.get("IAM_ROLE",'arn')     ]  
+
             )
+            
+            print("Creating a redshift cluster... Run 'redshift_properties(config_file)' and store the Redshift endpoint address in config file in section ['DWH'][''DWH_ENDPOINT']!  ")
         except Exception as e:
             print(e)
 
-        # TODO: write endpoint to config file
 
     ############################################################################
     def redshift_properties(self,config_file):
         """
-        TODO: describe function
-        Given a config file returns a pandas dataframe describing cluster status and properties.
+        Given a config file, reads redshift cluster settings and returns a pandas dataframe with cluster properties. If a cluster is not created, displays info that the cluster does not exist.
+
+        Args:
+            config_file        : a configuration file with key 'DWH' that specifies:
+                - DWH_CLUSTER_TYPE        : cluster type, for example: "multi-node",
+                - DWH_NUM_NODES           : number of nodes in a cluster, for example "4",
+                - DWH_NODE_TYPE           : type of cluster node, for example: "dc2.large"
+                - DWH_CLUSTER_IDENTIFIER  : cluster identifier name, for example "test_cluster"
+                - DWH_DB                  : name of the database
+                - DWH_DB_USER             : name of the database user
+                - DWH_DB_PASSWORD         : password for the database user
+                - DWH_PORT                : port numer for a database, for example 5439
+                - DWH_IAM_ROLE_NAME       : name of the IAM role name attached to a cluster
+
+                together with 'ARN' key specifying:
+                - 'IAM_ROLE' ARN number
+
         """
         # Load config file:
         try:
@@ -292,7 +335,6 @@ class iac():
         required_fields = {'DWH': dwh_required_fields, 'IAM_ROLE':iam_required_fields }
 
         ### Check required fields:
-
         for key,fields in required_fields.items():
             for field in fields:
                 try:
@@ -304,7 +346,6 @@ class iac():
                     return("The field "+  key + ": " + field + " not present in " + config_file +". The required keys in " + config_file + " are: \n " + ', \n  '.join(required_fields) )
 
         ### Obtain cluster properties:
-
         DWH_CLUSTER_IDENTIFIER = self.config.get("DWH",'DWH_CLUSTER_IDENTIFIER')
 
         try:
@@ -321,7 +362,14 @@ class iac():
 
     ############################################################################
     def redshift_delete(self,config_file):
- 
+        """
+        A helper function to terminate an existing Redshift cluster using setting specified in config_file:
+
+        Args:
+            config_file        : a configuration file with key 'DWH' that specifies:
+                - DWH_CLUSTER_IDENTIFIER        : cluster identifier name,
+
+        """
         # Load config file:
         try:
             self.config.read_file(open(config_file))
@@ -335,7 +383,6 @@ class iac():
         required_fields = {'DWH': dwh_required_fields,   }
 
         ### Check required fields:
-
         for key,fields in required_fields.items():
             for field in fields:
                 try:
@@ -347,7 +394,6 @@ class iac():
                     return("The field "+  key + ": " + field + " not present in " + config_file +". The required keys in " + config_file + " are: \n " + ', \n  '.join(required_fields) )
 
         ### Delete a redshift cluster
-
         try: 
             DWH_CLUSTER_IDENTIFIER = self.config.get("DWH",'DWH_CLUSTER_IDENTIFIER')
             response = self.redshift.delete_cluster( ClusterIdentifier=DWH_CLUSTER_IDENTIFIER,  SkipFinalClusterSnapshot=True)
@@ -361,10 +407,24 @@ class iac():
     ############################################################################
     def redshift_authorize_connection(self,config_file,VPC_ID):
         """
-        # TODO: describe 
+        A helper function to authorize ingress (incoming) connection from all addresses (0.0.0.0/0). NOT RECOMMENDED in production environment. Reads config file to identify a cluster. Takes an additional argument VPC_ID. Returns a connection string ('conn_string') that is meant to be used to connect to a redshift cluster through interactive shell, like jupyter notebook without directly exposing user credentials.
+        
+        Args:
+            VPC_ID             : AWS VPC (Virtual Private Cloud) identifier 
+            config_file        : a configuration file with key 'DWH' that specifies:
+                - DWH_DB                  : name of the database
+                - DWH_DB_USER             : name of the database user
+                - DWH_DB_PASSWORD         : password for the database user
+                - DWH_PORT                : port numer for a database, for example 5439
+                - DWH_ENDPOINT            : Redshift cluster endpoint address
+
+                together with 'ARN' key specifying:
+                - 'IAM_ROLE' ARN number
+
+        Returns:
+            conn_string         : a connection string containing user, password, endpoint address. Used for easy connection to a redshift cluster in jupyter notebook.
+
         """
-        # TODO: implement
-        # Load config file:
         try:
             self.config.read_file(open(config_file))
     
@@ -373,12 +433,9 @@ class iac():
             return(e)
 
         dwh_required_fields = ['DWH_PORT','DWH_DB_USER','DWH_DB_PASSWORD','DWH_ENDPOINT','DWH_DB' ]
- 
-
         required_fields = {'DWH': dwh_required_fields  }
 
         ### Check required fields:
-
         for key,fields in required_fields.items():
             for field in fields:
                 try:
@@ -391,7 +448,6 @@ class iac():
 
 
         ###################### Test connection
-
         try:
             vpc = self.ec2.Vpc(id=VPC_ID)
             defaultSg = list(vpc.security_groups.all())[0]
