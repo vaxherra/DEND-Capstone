@@ -9,8 +9,6 @@ from airflow import AirflowException
 import os
 import urllib.request
 
-
-
 class stage2table(BaseOperator):
     """
     Operator to load data from AWS Redshift staging table to a specified dimension/fact table.
@@ -20,14 +18,13 @@ class stage2table(BaseOperator):
          target_table       : name of target dimension table in Redshift cluster
          target_columns     : string containing comma separated list of columns for the target Redshift table. Must be compatible with the resuling columns from the `query` parameter
          insert_mode        : "append" (default) or "delete_load". By default the new records are appended to existing ones without deleting all entries. Choose "delete_load" to pre-empty the dimension table before filling.
-         query              : A string SQL statement to query the staging table, extracting desired columns and rows for the target table
+         query              : A string SQL statement to query the staging table, extracting desired columns and rows for the target table. 
 
     Returns:
         None
     
 
     """
-
     ui_color = '#80BD9E'
     
     # SQL template: INSERT INTO <target_table>(<target_columns>) <QUERY>
@@ -53,16 +50,14 @@ class stage2table(BaseOperator):
         self.insert_mode=insert_mode
 
     def execute(self, context):
-    
-        #Redshift hook
+        # Obtain a Redshift hook
         redshift = PostgresHook(postgres_conn_id=self.redshift_conn_id)
         
-        # Modes
+        # Modes: 'delete_load'/'append'
         if self.insert_mode == "delete_load":
             self.log.info("deleta_load mode: proceeding to clear data from Redshift target table: {} ..."\
                             .format(self.target_table))
             redshift.run("DELETE FROM {}".format(self.target_table))
-
             
         elif self.insert_mode == "append":
             self.log.info("append mode: injecting new data on top of old one in Redshift target table: {} ..."\
@@ -72,7 +67,7 @@ class stage2table(BaseOperator):
                             .format(self.target_table))
         
         
-
+        # Format provided SQL query
         sql_query = self.sql_template.format(self.target_table,  self.target_columns,   self.query   )
         
         self.log.info("Inserting...")
