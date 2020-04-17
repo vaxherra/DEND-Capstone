@@ -4,8 +4,7 @@ from airflow.utils.decorators import apply_defaults
 
 class DataQualityOperator(BaseOperator):
     """
-    Data Quality operator. Connects to a data-warehouse through provided connection ID, and loops over provided set of tests, each specifying an SQL query and a condition string to be evaluated.
-    Operator logs passes and raises a `ValueError` on the first occurence of an error.
+    Data Quality operator. Connects to a data-warehouse through provided connection ID, and loops over provided set of tests, each specifying an SQL query and a condition string to be evaluated. Operator records passes and raises a `ValueError` on the first occurence of an error.
     
     Args:
         redshift_conn_id    : an Airflow conn_id for Redshift
@@ -16,6 +15,9 @@ class DataQualityOperator(BaseOperator):
     Returns:
         None
         
+    Example of a single test: [(SQL_statement,test)] 
+        SQL_statement : ''' SELECT COUNT(*) FROM test_table   '''  -> a simple count of number of records in a table
+        test          : ''' {}[0][0] >= 1   ''' : the result of 'SQL_statement' is put in round brackets {}. The result is still formatted as 2 dimensional array but with once cell. [0][0] accesses first row and cell of run query, then runs a check '>=1'. Test is passed if the evaluation is 'True', otherwise the test is failed.
  
     """
     template_fields = ("tests",) # this allows us to use context variables from test SQL queries
@@ -23,9 +25,6 @@ class DataQualityOperator(BaseOperator):
 
     @apply_defaults
     def __init__(self,
-                 # Define your operators params (with defaults) here
-                 # Example:
-                 # conn_id = your-connection-name
                  redshift_conn_id="",
                  tests=[],
                  *args, **kwargs):
