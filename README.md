@@ -192,3 +192,23 @@ User icons specify users:
 
 A notebook in `notebooks/Analytics/` explores a set of potential analytical questions that can be answered by provided SQL queries.
 
+
+## Addressing Other Scenarios
+For the purposes of DEND capstone I discuss briefly the following
+
+### The data was increased by 100x.
+If the size of the input data was increased 100x, in this project that would mean changing for example GDELT v1. database updated daily, to GDELT v2 updated every 15minutes with richer information then:
+
+- In term of **architectural solutions** Redshift cluster would have to be upgraded in term of storage and/or number of nodes. For example a simple change from `dc2.large` with max 160GB per node, to `ra3.4xlarge` with 64TB per node would be sufficient to scale the architecture.
+
+- Data model would have to be re-ealuated, to accomodate new columns and appropriate data quality checks
+
+- Pipelines would have to be run on different schedule runs`
+
+
+### The pipelines would be run on a daily basis by 7 am every day.
+The data pipelines already start at 6:15 am EST every morning. But if the results were to be produced **by 7am** every day, then **SLA** (Service Level Agreement) for a given `DAG` must be specified for time sensitive applicaitons. In case tasks were missing their SLAs, I'd need to setup monitoring and alert system that could use for example email as a way to inform about potential errors, and an alert system, like PagerDuty to auto-handle further notifications.
+
+
+### The database needed to be accessed by 100+ people.
+One solution would be to leverage AWS programmatic API, for example through `boto3` to create 100 users, to each attaching read-only policy for a given resource (AWS Redshift).
