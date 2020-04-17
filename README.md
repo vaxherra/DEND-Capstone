@@ -211,4 +211,4 @@ The data pipelines already start at 6:15 am EST every morning. But if the result
 
 
 ### The database needed to be accessed by 100+ people.
-One solution would be to leverage AWS programmatic API, for example through `boto3` to create 100 users, to each attaching read-only policy for a given resource (AWS Redshift).
+One solution would be to leverage AWS programmatic API, for example through `boto3` to create 100 users, to each attaching read-only policy for a given resource: AWS Redshift.
