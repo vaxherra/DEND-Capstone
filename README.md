@@ -75,17 +75,6 @@ At the project inception stage, I have defined a set of design goals to help gui
 - design a **flexible data model** that could potentially accomodate new sources of information and help with analytical querying. This means standardizing date formats, selecting relevant date types for columns, discarding redundant columns, etc...
 
 
-TODO: remove
-
-- `GoldsteinScale`  an approximation of the stability of a location over time.
-- `NumMentions` Identify importance of an event:
-	over time analysis:
-	- diminishing events
-	- emerging events
-	- with `AvgTone`: positive and negative
-
-- geographic region selected by latitude and longitude
-- 
 ## 4. Data pipelines
 
 In order to run Airflow data pipelines, switch to `/airflow` folder from the main repository, and export environmental variable `export AIRFLOW_HOME=$(pwd)`, then it is possible to start the scheduler by running `airflow scheduler` and/or a webserver on a `8080` port: `airflow webserver -p 8080`.
